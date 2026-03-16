@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
+# 如果系统安装了 watchdog，就用它实时监听文件夹变化；如果没有安装，也不要让程序崩溃。
 try:
     from watchdog.events import FileSystemEvent, FileSystemEventHandler
     from watchdog.observers import Observer
@@ -39,10 +40,12 @@ FILE_RULES: Dict[str, List[str]] = {
     "Others": [],
 }
 
+# 临时文件扩展名，不能立刻移动
 TEMP_EXTENSIONS = {".crdownload", ".tmp", ".part"}
 
-
+# 文件分类函数
 def classify_file(path: Path) -> Optional[str]:
+    # 取扩展名
     ext = path.suffix.lower()
     if ext in TEMP_EXTENSIONS:
         return None
@@ -51,7 +54,7 @@ def classify_file(path: Path) -> Optional[str]:
             return category
     return "Others"
 
-
+# 避免重名
 def _dedupe_destination(dest: Path) -> Path:
     if not dest.exists():
         return dest
@@ -66,8 +69,9 @@ def _dedupe_destination(dest: Path) -> Path:
             return candidate
         i += 1
 
-
+# 等待文件准备好：确认这个文件是否已经下载完、写入完、可以安全移动
 def _wait_for_file_ready(path: Path, *, stop_event: threading.Event, timeout_s: float = 30) -> bool:
+    # monotonic()时间戳
     deadline = time.monotonic() + timeout_s
     last_size = None
     stable_since = None
@@ -99,7 +103,7 @@ def _wait_for_file_ready(path: Path, *, stop_event: threading.Event, timeout_s: 
 
     return False
 
-
+# 文件系统事件处理器，给 watchdog 用的事件处理类，一旦 Downloads 目录发生变化，就把对应文件路径放入队列
 class _DownloadsEventHandler(FileSystemEventHandler):
     def __init__(self, *, downloads_path: Path, path_queue: "queue.Queue[Path]") -> None:
         self.downloads_path = downloads_path
@@ -125,7 +129,7 @@ class _DownloadsEventHandler(FileSystemEventHandler):
         except Exception:
             return
 
-
+# 核心类，继承threading.Thread，说明它本身就是一个后台线程。
 class DownloadsOrganizer(threading.Thread):
     def __init__(
         self,
@@ -194,7 +198,7 @@ class DownloadsOrganizer(threading.Thread):
 
         self._stop_watchdog()
         self.logger.info("Downloads organizer stopped")
-
+    # 清空队列
     def _drain_queue(self) -> None:
         start = time.monotonic()
         while not self.stop_event.is_set():
@@ -239,7 +243,7 @@ class DownloadsOrganizer(threading.Thread):
             observer.join(timeout=5)
         except Exception:
             self.logger.exception("Failed to stop watchdog observer")
-
+    # 整理文件的执行函数
     def _organize_path(self, path: Path) -> None:
         if not path.exists():
             return

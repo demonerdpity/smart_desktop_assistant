@@ -68,6 +68,7 @@ class ClipboardMonitor(threading.Thread):
 
     def _safe_paste(self) -> Optional[str]:
         try:
+            # 读取系统剪贴板
             text = pyperclip.paste()
         except pyperclip.PyperclipException:
             return None
