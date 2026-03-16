@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.py[cod]
+
+# Runtime data
+logs/
+*.log
+data/*.db*
+
+# Build artifacts
+dist/
+build/
+*.spec
+
+# OS files
+Thumbs.db
+Desktop.ini
